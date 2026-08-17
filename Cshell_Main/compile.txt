@@ -1,0 +1,1 @@
+gcc cshell.c general_commands.c su_commands.c internet.c games.c -o cshell.exe -lws2_32 -lcurl

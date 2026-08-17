@@ -1,0 +1,2 @@
+hi! you can do stuff with the shell now
+its cool huh ?
