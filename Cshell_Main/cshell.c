@@ -123,12 +123,12 @@ void print_banner(void) {
 }
 int main(void) {
     #ifdef _WIN32
+    enable_ansi(); // we enable ansi codes ourselves just in case
     SetConsoleCtrlHandler(console_handler, TRUE);
     #else
     signal(SIGINT, handle_sigint);
     #endif
     print_banner();
-    enable_ansi(); // we enable ansi codes ourselves just in case
     printf("CShell 2026 - Developed by Ekzad - v1.00.000\n");
     printf(COLOR_CYAN "V1 Dev note: This was pretty hard to make LOL. im getting used to it slowly. this thing is my first project in C so dont bully if its not up to your standard :p\n" COLOR_RESET);
     check_sus();
