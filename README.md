@@ -26,7 +26,15 @@ Here are the commands of CShell
 [18] get      Pulls files from a GitHub repository link - usage: get <GITHUB_link>
 [19] games    Play CShell games - usage: games
 [20] sudo     sudo help for more - usage: sudo <action>
+[21] apps     'app <app_name>' will start the app, 'app' will show the list of available apps - usage: apps <app_name>
+[22] cpuinfo  gives you information about your current CPU - usage: cpuinfo
+[23] larp     Local ARP Scanner - usage: larp
+[24] rdp      Remote Desktop Protocol check for destination - usage: rdp <ip>
+[25] scan     Scans common ports - usage: scan <ip>
 ```
 
 Though, I did not want to resort to just `system("command")` so.. i wrote everything from scratch
 You can contribute to this project and write some new code if you like.
+
+Updates:
+- (Date: 21.8.26) update contains new commands + Security/Bug fixes
