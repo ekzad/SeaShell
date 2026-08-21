@@ -3,6 +3,8 @@
 #include <string.h>
 #include <time.h>
 #include <signal.h>
+#include <iphlpapi.h>
+#pragma comment(lib, "iphlpapi.lib")
 #include "colors.h"
 #ifdef _WIN32
     #include <winsock2.h>
@@ -191,4 +193,150 @@ void download(const char *arg) {
     fclose(fp); // close the file
     curl_easy_cleanup(curl); //clean up :)
 
+}
+
+void larp(const char *arg) {
+    (void)arg;
+
+    ULONG size = 0;
+    GetIpNetTable(NULL, &size, FALSE); // first call just gets required size
+
+    PMIB_IPNETTABLE table = (PMIB_IPNETTABLE)malloc(size);
+    if (GetIpNetTable(table, &size, FALSE) != NO_ERROR) {
+        printf("[!] Couldn't read ARP table\n");
+        free(table);
+        return;
+    }
+
+    printf("Devices seen on your network:\n");
+    for (DWORD i = 0; i < table->dwNumEntries; i++) {
+        MIB_IPNETROW row = table->table[i];
+
+        struct in_addr addr;
+        addr.S_un.S_addr = row.dwAddr;
+
+        printf("  IP: %-15s  MAC: %02X-%02X-%02X-%02X-%02X-%02X\n",
+            inet_ntoa(addr),
+            row.bPhysAddr[0], row.bPhysAddr[1], row.bPhysAddr[2],
+            row.bPhysAddr[3], row.bPhysAddr[4], row.bPhysAddr[5]);
+    }
+
+    free(table);
+}
+
+int tcp_response(const char *ip, unsigned short port, char *response, int response_size)
+{
+    if (ip == NULL || response == NULL || response_size <= 0) {
+        return -1;
+    }
+
+    response[0] = '\0';  // init
+
+    SOCKET sock = INVALID_SOCKET;
+    struct sockaddr_in server;
+    memset(&server, 0, sizeof(server));
+    server.sin_family = AF_INET;
+    server.sin_port = htons(port);
+
+    if (InetPtonA(AF_INET, ip, &server.sin_addr) != 1) {
+        printf("ERR: Invalid IP address.\n");
+        return -1;
+    }
+
+    sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (sock == INVALID_SOCKET) {
+        printf("ERR: WSAStartup Failed...\n");
+        return -1;  // <-- ending up here means socket wasnt overwritten basically. WSA startup failed
+    }
+
+    // timeout time is 3s so that we arent left hanging forever with no termination
+    DWORD timeout = 3000; // 3s
+    setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, (const char*)&timeout, sizeof(timeout));
+
+    if (connect(sock, (struct sockaddr *)&server, sizeof(server)) == SOCKET_ERROR) {
+        closesocket(sock);
+        return 0;
+    }
+
+    // connect succeeded => port is open. For RDP, no banner needed
+    closesocket(sock);
+    return 1; // 1=OPEN
+}
+// Port scanner
+
+void checkports(const char *arg) {
+    // arg IS the ip
+    if (arg == NULL || arg[0] == '\0') {
+        printf("[!] Invalid argument\n");
+        printf("Usage: scan <ip_address>\n");
+        return;
+    }
+
+    unsigned short common_ports[] = {
+    7, 19, 20, 21, 22, 23, 25, 42, 43, 49, 53, 67, 68, 69, 70, 79, 80, 88,
+    102, 110, 113, 119, 123, 135, 137, 138, 139, 143, 161, 162, 177, 179,
+    194, 201, 264, 318, 381, 383, 389, 411, 412, 427, 443, 445, 464, 465,
+    497, 500, 512, 513, 514, 515, 520, 521, 540, 546, 547, 548, 554, 560,
+    563, 587, 591, 593, 596, 631, 636, 639, 646, 691, 860, 873, 902, 989,
+    990, 993, 995, 3389, 8080
+};
+
+    const char *port_names[] = {
+    "Echo", "CHARGEN", "FTP-data", "FTP", "SSH", "Telnet", "SMTP",
+    "WINS-Repl", "WHOIS", "TACACS", "DNS", "DHCP-srv", "DHCP-cli", "TFTP",
+    "Gopher", "Finger", "HTTP", "Kerberos", "MS-Exch-ISO", "POP3", "Ident",
+    "NNTP", "NTP", "MS-RPC-EPMAP", "NetBIOS-ns", "NetBIOS-dgm",
+    "NetBIOS-ssn", "IMAP", "SNMP", "SNMP-trap", "XDMCP", "BGP", "IRC",
+    "AppleTalk", "BGMP", "TSP", "HP-OV-collect", "HP-OV-alarm", "LDAP",
+    "DC-Hub", "DC-C2C", "SLP", "HTTPS", "MS-DS-SMB", "Kerberos-pw",
+    "SMTPS", "Retrospect", "IPSec-IKE", "rexec", "rlogin", "syslog",
+    "LPD", "RIP", "RIPng", "UUCP", "DHCPv6-cli", "DHCPv6-srv", "AFP",
+    "RTSP", "rmonitor", "NNTPS", "SMTP-sub", "FileMaker", "MS-DCOM",
+    "SMSD", "IPP", "LDAPS", "MSDP", "LDP-MPLS", "MS-Exch-Route", "iSCSI",
+    "rsync", "VMware-Srv", "FTPS-data", "FTPS-ctrl", "IMAPS", "POP3S",
+    "RDP", "HTTP-Alt"
+};
+    const int len_ports = sizeof(common_ports) / sizeof(common_ports[0]);
+
+    printf("Scanning %s\n", arg);
+    for (int i=0; i < len_ports; i++) {
+        char junk[64];
+        int result = tcp_response(arg, common_ports[i], junk, sizeof(junk));
+
+        const char *status;
+        if (result == 0) status="CLOSED";
+        if (result > 0) status="OPEN";
+        if (result <0)  status="ERROR"; // this might break ? keep an eye on this
+
+        printf("  Port %-5d (%-8s): %s\n", common_ports[i], port_names[i], status);
+    }
+
+}
+
+// PORT 3389 Check
+void rdp(const char *arg) {
+    if (arg == NULL || arg[0] == '\0') {
+        printf("[!] Invalid input\n");
+        printf("Usage: rdp <ip_address>\n");
+        return;
+    }
+    int port = 3389;
+    char response[1024] = {0};
+    int result = tcp_response(arg, port, response, sizeof(response));
+    // printf("Debug line: Response: %s, Result: %d", response, result); they return None and -1. idk why 8.21.2026, After midnight // 8.21.2026 1PM: fixed it:
+    /* TCP response function was broken. We never called WSAStartup. now though, with the new tcp response, 1: Connected, 0: Not connected*/
+    if (result > 0) {
+        printf("TCP:3389 Responded with:\n");
+        printf("Response: %s, Result: %d\n", response, result );
+        printf("Destination has an open 3389 port.\n");
+        return;
+        // add coverage for other ports also
+    }
+    else if (result==0){
+        printf("[!] Could not connect to RDP on TCP:3389, on destination IP address\n");
+        return;
+    }
+    else {
+        printf("[!] An error occured.\n");
+    }
 }

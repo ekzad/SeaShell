@@ -50,4 +50,11 @@ void download(const char *arg);
 void games(const char *arg);
 void get_exe_dir(char *out, size_t out_size);
 void handle_su_cmds(const char *arg);
+void app_handle(const char *arg); // check if arg is empty or not
+void names(const char *arg);
+void execute(const char *arg);
+void cpuinfo(const char *arg);
+void larp(const char *arg);
+void rdp(const char *arg);
+void checkports(const char *arg);
 #endif

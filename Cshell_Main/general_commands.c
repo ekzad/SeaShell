@@ -6,6 +6,16 @@
 #include "prototypes.h"
 #ifdef _WIN32
 #include <windows.h>
+
+/* 
+   
+   General commands of CShell, all written here and registered in prototypes.h
+   For more, you can add your own commands here. If they are more complex than just a simple chdir,
+   its better to separate it from these commands. 
+   
+   8/20/2026 - Latest Update
+   
+*/
 void enable_ansi(void) { // idk why this works exactly. im still new to this and this is weird
     HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
     DWORD mode = 0;
@@ -378,4 +388,15 @@ void help(const char *arg) {
         printf("[%zu] %-8s %s - usage: %s\n",
                i + 1, commands[i].name, commands[i].desc, commands[i].usage);
     }
+}
+
+extern void get_cpu_vendor(char *out);
+
+void cpuinfo(const char *arg) {
+    (void)arg;
+
+    char vendor[13];
+    get_cpu_vendor(vendor);
+
+    printf("CPU Vendor: %s\n", vendor);
 }

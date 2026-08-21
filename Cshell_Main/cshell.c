@@ -8,16 +8,24 @@
 #include "colors.h"
 volatile sig_atomic_t interrupt_requested =0;
 #ifdef _WIN32 // if ur on windows, this will be chosen
+
+#pragma comment(lib, "ws2_32.lib")
+#include <winsock2.h>
+#include <ws2tcpip.h>
 #include <windows.h>
 BOOL WINAPI console_handler(DWORD sig) {
     if (sig == CTRL_C_EVENT) {
         interrupt_requested = 1;
         return true; // meaning, it handled it successfully
     }
+    if (sig == CTRL_CLOSE_EVENT || sig == CTRL_LOGOFF_EVENT || sig == CTRL_SHUTDOWN_EVENT) {
+        WSACleanup();      // real cleanup happens HERE, on this thread
+        return TRUE;       // tell Windows: handled, don't force-kill immediately
+    }
     return false;
 }
 #else // other os
-void signal(int sig) {
+void handle_signal(int sig) {
     (void)sig;
     interrupt_requested = 1;
 }
@@ -48,7 +56,12 @@ Command commands[] = {
     {"ping",    ping,         "ping <address>",             "Pings the destination"},
     {"get",     download,     "get <GITHUB_link>",          "Pulls files from a github repository link"},
     {"games",   games,        "games",                      "Play CShell games"},
-    {"sudo", handle_su_cmds,  "sudo <action>",              "sudo help for more"}
+    {"sudo", handle_su_cmds,  "sudo <action>",              "sudo help for more"},
+    {"apps", app_handle,      "apps <app_name>",            "'app <app_name>' will start the app, 'app' will show the list of available apps"},
+    {"cpuinfo", cpuinfo,      "cpuinfo",                    "gives you information about your current CPU"},
+    {"larp",   larp,          "larp",                       "Local ARP Scanner"},
+    {"rdp",    rdp,           "rdp <ip>",                   "Remote Desktop Protocol check for destination"},
+    {"scan",   checkports,    "scan <ip>",                  "Scans common ports"}
 };
 
 const size_t command_count = sizeof(commands) / sizeof(commands[0]);
@@ -121,15 +134,25 @@ void print_banner(void) {
     }
     fclose(fp);
 }
+
 int main(void) {
     #ifdef _WIN32
+    WSADATA wsaData;
+    if (WSAStartup(MAKEWORD(2,2), &wsaData) != 0) {
+        printf("CShell experienced an error initializing networking...\n");
+        return 1;
+    }
     enable_ansi(); // we enable ansi codes ourselves just in case
     SetConsoleCtrlHandler(console_handler, TRUE);
     #else
-    signal(SIGINT, handle_sigint);
+    signal(SIGINT, handle_signal); // wow i had this so wrong
     #endif
     print_banner();
-    printf("CShell 2026 - Developed by Ekzad - v1.00.000\n");
+    printf("CShell 2026 - Developed by Ekzad - v1.30.220\n");
+    // exit function:
+    /* typing exit will quit by breaking the main loop and cleaning up WSA
+       if you press ctrl+c or do the exit event/log off event, it will be handled on the top of this code
+       clean up WSA -> exit */
     printf(COLOR_CYAN "V1 Dev note: This was pretty hard to make LOL. im getting used to it slowly. this thing is my first project in C so dont bully if its not up to your standard :p\n" COLOR_RESET);
     check_sus();
     printf("Enter command 'mist su' to go superuser\n");
@@ -154,10 +177,14 @@ int main(void) {
         }
         
         input[strcspn(input, "\n")] = '\0';
-        
+        if (strcmp(input, "exit") == 0 || strcmp(input, "Exit") ==0) {
+            printf("Exitting...\n");
+            break;
+        }
         if (input[0] == '\0') {
             continue; // if the first char is \0, it means input was empty...
         }
+        // windcmd exit handling
         if (windcmd) {
             if (strcmp(input, "mist windcmd") == 0) {
                 // pass it onto cshell command handler
@@ -167,6 +194,7 @@ int main(void) {
             continue;
             }
         }
+        // ----
         char *command = get_command(input);
         Command *cmd = find_command(command);
         const char *rest = strtok(NULL, "");
@@ -179,4 +207,9 @@ int main(void) {
             cmd->func(rest);
         }
     }
+
+    #ifdef _WIN32
+    WSACleanup();
+    #endif
+    return 0;
 }

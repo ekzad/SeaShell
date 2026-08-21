@@ -1,0 +1,2 @@
+notepad=notepad.exe
+spark browser=spark_browser.exe
